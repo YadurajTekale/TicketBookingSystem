@@ -1,41 +1,37 @@
 package ticket.booking.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
-@JsonNaming(PropertyNamingStrategy.SnakeCaseStrategy.class)
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 @JsonIgnoreProperties(ignoreUnknown = true)
 
 public class User {
 
     private String username;
     private String userId;
-    private String password;
+    // Only the BCrypt hash is stored. The plain-text password used to be saved to users.json as well.
     private String hashedPassword;
-    private List<Ticket> ticketsBooked;
+    private List<Ticket> ticketsBooked = new ArrayList<>();
 
     // Constructor
     public User(){}
 
-    public User(String username, String password, String hashedPassword, List<Ticket> ticketsBooked, String userId){
+    public User(String username, String hashedPassword, List<Ticket> ticketsBooked, String userId){
         this.username = username;
         this.userId = userId;
-        this.password = password;
         this.hashedPassword = hashedPassword;
-        this.ticketsBooked = ticketsBooked != null ? ticketsBooked : Collections.emptyList(); // Safe handling for null lists
+        // a modifiable list, so tickets can be added later
+        this.ticketsBooked = ticketsBooked != null ? new ArrayList<>(ticketsBooked) : new ArrayList<>();
     }
 
     // Getter's
     public String getUsername() {
         return username;
-    }
-
-    public String getPassword() {
-        return password;
     }
 
     public String getHashedPassword() {
@@ -44,18 +40,6 @@ public class User {
 
     public List<Ticket> getTicketsBooked() {
         return ticketsBooked;
-    }
-
-    public void printTickets(){
-//        System.out.println("Debugged User.java -> printTickets()");
-        if(ticketsBooked.isEmpty()){
-            System.out.println("No tickets booked yet!");
-            return;
-        }else {
-            for (Ticket ticket : ticketsBooked) {
-                System.out.println(ticket.getTicketInfo());
-            }
-        }
     }
 
     public String getUserId() {
@@ -73,7 +57,7 @@ public class User {
     }
 
     public void setTicketsBooked(List<Ticket> ticketsBooked) {
-        this.ticketsBooked = ticketsBooked;
+        this.ticketsBooked = ticketsBooked != null ? new ArrayList<>(ticketsBooked) : new ArrayList<>();
     }
 
     public void setHashedPassword(String hashedPassword) {

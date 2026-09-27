@@ -1,14 +1,15 @@
 package ticket.booking.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 import java.util.List;
 import java.util.Map;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-@JsonNaming(PropertyNamingStrategy.SnakeCaseStrategy.class)
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 
 public class Train {
     private String trainId;
@@ -74,7 +75,28 @@ public class Train {
         this.stations = stations;
     }
 
+    @JsonIgnore // computed text, not something to save in trains.json
     public String getTrainInfo(){
         return String.format("Train ID: %s Train No: %s", trainId, trainNo);
+    }
+
+    // Seat helpers. seats is a 2D list: 0 = free, 1 = booked (0-based row and column).
+
+    public boolean hasSeat(int row, int column){
+        return seats != null
+                && row >= 0 && row < seats.size()
+                && column >= 0 && column < seats.get(row).size();
+    }
+
+    public boolean isSeatAvailable(int row, int column){
+        return hasSeat(row, column) && seats.get(row).get(column) == 0;
+    }
+
+    public int availableSeatCount(){
+        return (int) seats.stream().flatMap(List::stream).filter(seat -> seat == 0).count();
+    }
+
+    public int totalSeatCount(){
+        return seats.stream().mapToInt(List::size).sum();
     }
 }

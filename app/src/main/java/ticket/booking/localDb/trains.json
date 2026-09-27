@@ -6,10 +6,9 @@
     "kandivali" : "08:00 AM",
     "borivali" : "09:00 AM",
     "goregaon" : "10:00 AM",
-    "malad" : "11:00 PM"
+    "malad" : "11:00 AM"
   },
-  "stations" : [ "kandivali", "borivali", "goregaon", "malad" ],
-  "train_info" : "Train ID: T123 Train No: 12345"
+  "stations" : [ "kandivali", "borivali", "goregaon", "malad" ]
 }, {
   "train_id" : "T456",
   "train_no" : "45678",
@@ -19,8 +18,7 @@
     "vileparle" : "11:00 AM",
     "bandra" : "12:00 PM"
   },
-  "stations" : [ "andheri", "vileparle", "bandra" ],
-  "train_info" : "Train ID: T456 Train No: 45678"
+  "stations" : [ "andheri", "vileparle", "bandra" ]
 }, {
   "train_id" : "T789",
   "train_no" : "78912",
@@ -30,6 +28,5 @@
     "grantroad" : "03:00 PM",
     "byculla" : "04:00 PM"
   },
-  "stations" : [ "dadar", "grantroad", "byculla" ],
-  "train_info" : "Train ID: T789 Train No: 78912"
+  "stations" : [ "dadar", "grantroad", "byculla" ]
 } ]

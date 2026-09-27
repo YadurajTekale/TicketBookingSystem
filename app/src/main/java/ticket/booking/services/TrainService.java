@@ -4,10 +4,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import ticket.booking.entities.Train;
+import ticket.booking.utils.DataFiles;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.Collectors;
@@ -17,43 +19,80 @@ public class TrainService {
 
     private List<Train> trainList;
     private final ObjectMapper objectMapper;
-    private static final String TRAIN_DB_PATH = "app/src/main/java/ticket/booking/localDb/trains.json";
+    private final File trainsFile;
 
     public TrainService() throws IOException{
+        this(DataFiles.locate("trains.json"));
+    }
+
+    // Tests pass their own file, so the real data is never touched
+    public TrainService(File trainsFile) throws IOException{
+        this.trainsFile = trainsFile;
         objectMapper = new ObjectMapper();
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
         loadTrains();
     }
 
     public void loadTrains() throws IOException{
-        trainList = objectMapper.readValue(new File(TRAIN_DB_PATH), new TypeReference<List<Train>>() {});
-//        System.out.println(trainList);
+        trainList = objectMapper.readValue(trainsFile, new TypeReference<List<Train>>() {});
+    }
+
+    /** "  Grant Road " -> "grantroad", the format station names are stored in. */
+    public static String normalizeStation(String name){
+        return name == null ? "" : name.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
     }
 
     public List<Train> searchTrains(String source, String destination){
-
-        // getting the source and destination
-        // and filtering the trains based on the source and destination
-        // in trainList List that was loaded from Train.json
-        // fetching each train from the list through stream and filtering it
-        // and checking it with the validTrain method
-        // if valid then collecting it in a list
-        // and returning the list of trains that are valid for the source and destination
-        try{
-            return trainList.stream()
-                    .filter(train -> validTrain(train,source,destination))
-                    .collect(Collectors.toList());
-        }catch (Exception ex){
-            System.out.println("Error in searchTrains: " + ex.getMessage());
-            return null;
-        }
+        String from = normalizeStation(source);
+        String to = normalizeStation(destination);
+        return trainList.stream()
+                .filter(train -> validTrain(train, from, to))
+                .collect(Collectors.toList());
     }
 
-    public void addTrain(Train newTrain) {
-        // Checking here if a train with the same trainId already exists
-        Optional<Train> existingTrain = trainList.stream()
-                .filter(train -> train.getTrainId().equalsIgnoreCase(newTrain.getTrainId()))
+    public Optional<Train> findTrain(String trainId){
+        return trainList.stream()
+                .filter(train -> train.getTrainId().equalsIgnoreCase(trainId))
                 .findFirst();
+    }
+
+    /** Every station served by any train, sorted and without duplicates. */
+    public List<String> getAllStations(){
+        return trainList.stream()
+                .flatMap(train -> train.getStations().stream())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Marks a seat as booked and saves trains.json.
+     * Returns false if the train or seat does not exist, or the seat is already booked.
+     */
+    public boolean bookSeat(String trainId, int row, int column) throws IOException{
+        Optional<Train> train = findTrain(trainId);
+        if (train.isEmpty() || !train.get().isSeatAvailable(row, column)) {
+            return false;
+        }
+        train.get().getSeats().get(row).set(column, 1);
+        saveTrainListToFile();
+        return true;
+    }
+
+    /** Makes a booked seat free again (used when a booking is cancelled). */
+    public boolean releaseSeat(String trainId, int row, int column) throws IOException{
+        Optional<Train> train = findTrain(trainId);
+        if (train.isEmpty() || !train.get().hasSeat(row, column)) {
+            return false;
+        }
+        train.get().getSeats().get(row).set(column, 0);
+        saveTrainListToFile();
+        return true;
+    }
+
+    public void addTrain(Train newTrain) throws IOException{
+        // Checking here if a train with the same trainId already exists
+        Optional<Train> existingTrain = findTrain(newTrain.getTrainId());
 
         if (existingTrain.isPresent()) {
             // If a train with the same trainId exists, update it instead of adding a new one
@@ -65,15 +104,7 @@ public class TrainService {
         }
     }
 
-    private void saveTrainListToFile() {
-        try {
-            objectMapper.writeValue(new File(TRAIN_DB_PATH), trainList);
-        } catch (IOException e) {
-            System.out.println("Failed to save train list to file: " + e.getMessage());
-        }
-    }
-
-    public void updateTrain(Train updatedTrain) {
+    public void updateTrain(Train updatedTrain) throws IOException{
         // Find the index of the train with the same trainId
         OptionalInt index = IntStream.range(0, trainList.size())
                 .filter(i -> trainList.get(i).getTrainId().equalsIgnoreCase(updatedTrain.getTrainId()))
@@ -88,45 +119,21 @@ public class TrainService {
             addTrain(updatedTrain);
         }
     }
-    
-    private boolean validTrain(Train train, String source, String destination) {
-        // getting are stations from that particular train in a list
-        List<String> stationList = train.getStations();
 
-        // getting the index of the source and destination in the stationOrder list
+    private void saveTrainListToFile() throws IOException{
+        objectMapper.writeValue(trainsFile, trainList);
+    }
+
+    private boolean validTrain(Train train, String source, String destination) {
+        // A train is valid when both stations are on its route
+        // and the source comes before the destination (trains only run one way)
+        List<String> stationList = train.getStations();
         int sourceIndex = stationList.indexOf(source);
         int destinationIndex = stationList.indexOf(destination);
 
-        // checking if the source and destination are in the stationList and source is before destination
-        // in the stationList
-        // so that the train is valid
-        try{
-            return  sourceIndex != -1
-                    && destinationIndex != -1
-                    && sourceIndex < destinationIndex;
-        }catch (Exception e){
-            System.out.println("Error in validTrain: " + e.getMessage());
-            return false;
-        }
-    }
-
-    public boolean bookTickets(Train train, int row, int seat) {
-        // getting the seats from the train
-        List<List<Integer>> seats = train.getSeats();
-        try{
-            if (row >= 0 && row < seats.size() && seat >= 0 && seat < seats.get(row).size()) {
-                if (seats.get(row).get(seat) == 0) {
-                    seats.get(row).set(seat, 1);
-                    train.setSeats(seats);
-                    addTrain(train);
-                    return true;
-                }
-            }
-            return false;
-        }catch (Exception e){
-            System.out.println("Error in bookTickets: " + e.getMessage());
-            return false;
-        }
+        return sourceIndex != -1
+                && destinationIndex != -1
+                && sourceIndex < destinationIndex;
     }
 
 }
